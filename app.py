@@ -8,6 +8,9 @@ from datetime import datetime, timedelta, timezone
 from flask_mail import Mail, Message
 from dotenv import load_dotenv
 import os
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+
 
 
 #伺服器基本設置
@@ -86,19 +89,6 @@ def login():
         return redirect("/member")
     return render_template("login.html")
 
-#SMTP服務,驗證信件初始設定
-load_dotenv()
-
-app.config.update({
-    'MAIL_SERVER': os.getenv('MAIL_SERVER'),
-    'MAIL_PORT': int(os.getenv('MAIL_PORT')),
-    'MAIL_USE_TLS': os.getenv('MAIL_USE_TLS') == 'True',
-    'MAIL_USERNAME': os.getenv('MAIL_USERNAME'),
-    'MAIL_PASSWORD': os.getenv('MAIL_PASSWORD'),
-    'MAIL_DEFAULT_SENDER': os.getenv('MAIL_DEFAULT_SENDER')
-})
-
-mail = Mail(app)
 
 #發送忘記密碼驗證信
 @app.route("/sendEmail", methods=["GET", "POST"])
@@ -120,13 +110,15 @@ def sendEmail():
             }])
         #建立信件內容
         base_url = os.getenv("BASE_URL")
-        verify_url = f"{base_url}/passwordForgot?token={token}"
-        msg = Message(
-        subject="請驗證您的帳號",
-        recipients=[type_email],
-        body = "請點擊以下連結完成驗證：\n" + verify_url)
-    #發送信件
-    mail.send(msg)
+        send_email = os.getenv("SEND_EMAIL")
+        message = Mail(
+        from_email=send_email,
+        to_emails=type_email,
+        subject="重設您的密碼",
+        html_content=f"<p>請點擊以下連結重設密碼：'{base_url}/passwordForgot?token={token}'"
+        )
+        sg = SendGridAPIClient(os.getenv("API_KEY"))
+        sg.send(message)
     return render_template("sendEmail.html")   
     
 @app.route("/message")
@@ -162,6 +154,7 @@ def passwordForgot():
     result = collection.find_one({"token": token})
     current_time = datetime.now()
     user_email = result["email"]
+
     if result == None or current_time > result["time_limit"]:
         return redirect("/message?msg=驗證信件已失效或錯誤")
     return render_template("password-forgot.html", token=token, user_email=user_email)
