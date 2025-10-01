@@ -106,7 +106,8 @@ def sendEmail():
         collection2.insert_many([{
             "email": type_email,
             "token": token,
-            "time_limit": timeSet
+            "time_limit": timeSet,
+            "used_status": True
             }])
         #建立信件內容
         base_url = os.getenv("BASE_URL")
@@ -148,17 +149,23 @@ def passwordForgot():
             {"email": user_email}, # 篩選條件
             {"$set": {"password": new_password}} # 更新操作
         )
+        collection2 = db.tokens
+        collection2.update_one(
+            {"email": user_email, "used_status": True},
+            {"$set": {"used_status": False}}
+        )
         return redirect("/message?msg=密碼已更新，請重新登入")
     token = request.args.get("token")
     collection = db.tokens
     result = collection.find_one({"token": token})
     current_time = datetime.now()
     user_email = result["email"]
-
-    if result == None or current_time > result["time_limit"]:
+    used_status = result["used_status"]
+    if used_status == False or current_time > result["time_limit"]:
         return redirect("/message?msg=驗證信件已失效或錯誤")
     return render_template("password-forgot.html", token=token, user_email=user_email)
-    
+
+#給render檢查使用的路由
 @app.route("/healthz")
 def health_check():
     return "OK", 200
