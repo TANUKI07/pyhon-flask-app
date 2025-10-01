@@ -158,6 +158,10 @@ def passwordForgot():
     if result == None or current_time > result["time_limit"]:
         return redirect("/message?msg=驗證信件已失效或錯誤")
     return render_template("password-forgot.html", token=token, user_email=user_email)
+    
+@app.route("/healthz")
+def health_check():
+    return "OK", 200
 
 app.run(host="0.0.0.0", port = 3000)
 
